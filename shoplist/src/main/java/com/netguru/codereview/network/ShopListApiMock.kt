@@ -8,20 +8,20 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 class ShopListApiMock : ShopListApi {
-    override suspend fun getShopLists(): List<ShopListResponse> =
+    override suspend fun getShopLists(): List<ShopListResponse?> =
         coroutineScope {
             List(9999) { index ->
                 ShopListResponse(
-                    list_id = index.toString(),
+                    listId = index.toString(),
                     userId = index,
                     listName = "ListName$index"
                 )
             }
         }
 
-    override suspend fun getShopListItems(listId: String): List<ShopListItemResponse> =
+    override suspend fun getShopListItems(listId: String): List<ShopListItemResponse?> =
         coroutineScope {
-            Thread.sleep(2)
+            delay(2)
             List(5) { index ->
                 ShopListItemResponse(
                     itemId = index.toString(),
@@ -31,7 +31,7 @@ class ShopListApiMock : ShopListApi {
             }
         }
 
-    override fun getUpdateEvents(): Flow<String> = flow {
+    override fun getUpdateEvents(): Flow<String?> = flow {
         var counter = 0
         while (true) {
             counter++

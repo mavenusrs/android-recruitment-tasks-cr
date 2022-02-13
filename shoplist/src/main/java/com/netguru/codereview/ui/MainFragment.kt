@@ -10,18 +10,14 @@ import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
+import androidx.fragment.app.viewModels
 import coil.load
-import com.netguru.codereview.network.model.ShopListItemResponse
-import com.netguru.codereview.network.model.ShopListResponse
 import com.netguru.codereview.shoplist.R
-import com.netguru.codereview.ui.model.ShopList
-import javax.inject.Inject
+import com.netguru.codereview.ui.model.ResultState
 
 class MainFragment : Fragment() {
 
-    @Inject
-    private var viewModel: MainViewModel? = null
+    private val viewModel: MainViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -31,35 +27,54 @@ class MainFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel = ViewModelProvider(this).get(MainViewModel::class.java)
 
-        viewModel!!.shopLists.observe(this, { lists ->
-            val progressBar = view.findViewById<ProgressBar>(R.id.message)
-            val latestIcon = view.findViewById<ImageView>(R.id.latest_list_icon)
+        observe()
 
-            val shopLists = lists.map { mapShopList(it.first, it.second) }.also {
-                latestIcon?.load(it.first().iconUrl)
-            }
-
-            progressBar?.isVisible = false
-
-            Log.i("LOGTAG", "LOLOLOL Is it done already?")
-
-
-            // Display the list in recyclerview
-            // adapter.submitList(shopLists)
-        })
-        viewModel!!.events().observe(this, {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-        })
+        viewModel.getShopList()
     }
 
-    private fun mapShopList(list: ShopListResponse, items: List<ShopListItemResponse>) =
-        ShopList(
-            list.list_id,
-            list.userId,
-            list.listName,
-            list.listName,
-            items
-        )
+    private fun observe() {
+        viewModel.shopListsLiveData.observe(viewLifecycleOwner) { result ->
+            val progressBar = view?.findViewById<ProgressBar>(R.id.progress_bar)
+            val latestIcon = view?.findViewById<ImageView>(R.id.latest_list_icon)
+
+            result?.apply {
+                when(this) {
+                    is ResultState.Success -> {
+                        this.data?.map { shotList ->
+                            Log.i("LOG_TAG", "${
+                                shotList?.listName
+                            } : ${
+                                shotList?.items?.map {
+                                    it?.name
+                                }
+                            }"
+                            )
+                        }
+
+                        latestIcon?.load(this.data?.lastOrNull()?.iconUrl)
+
+                        progressBar?.isVisible = false
+
+                        Log.i("LOG_TAG", "Yes, Is it done already?")
+
+
+                        // Display the list in recyclerview
+                        // adapter.submitList(shopLists)
+                    }
+                    is ResultState.Failed -> {
+                        Toast.makeText(context, "some error Happened, ${this.error}",
+                            Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+        }
+
+        viewModel.events().observe(viewLifecycleOwner) {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+        }
+
+    }
+
 }

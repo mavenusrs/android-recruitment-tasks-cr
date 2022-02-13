@@ -8,7 +8,8 @@ import com.netguru.codereview.network.ShopListApiMock
 import com.netguru.codereview.network.ShopListRepository
 import com.netguru.codereview.network.model.ShopListItemResponse
 import com.netguru.codereview.network.model.ShopListResponse
-import kotlinx.coroutines.GlobalScope
+import com.netguru.codereview.ui.model.ResultState
+import com.netguru.codereview.ui.model.ShopList
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
@@ -16,25 +17,42 @@ class MainViewModel : ViewModel() {
 
     private val shopListRepository = ShopListRepository(ShopListApiMock())
 
-    val shopLists = MutableLiveData<List<Pair<ShopListResponse, List<ShopListItemResponse>>>>()
-    private val eventLiveData = MutableLiveData<String>()
+    private val _shopListsLiveData =
+        MutableLiveData<ResultState<List<ShopList?>?>>()
+    internal val shopListsLiveData: LiveData<ResultState<List<ShopList?>?>>
+        get() = _shopListsLiveData
 
-    init {
+    private val eventLiveData = MutableLiveData<String?>()
+
+    internal fun getShopList() {
         viewModelScope.launch {
-            val lists = shopListRepository.getShopLists()
-            val data = mutableListOf<Pair<ShopListResponse, List<ShopListItemResponse>>>()
-            for (list in lists) {
-                val items = shopListRepository.getShopListItems(list.list_id)
-                data.add(list to items)
+            try {
+                val lists = shopListRepository.getShopLists()
+                val data = mutableListOf<Pair<ShopListResponse?, List<ShopListItemResponse?>>>()
+                for (list in lists) {
+                    list?.listId?.apply {
+                        val items = shopListRepository.getShopListItems(this)
+                        data.add(list to items)
+                    }
+                }
+
+                val shopLists = data.map { list ->
+                    list.first?.let { ShopList(it, list.second) }
+                }
+
+                _shopListsLiveData.postValue(ResultState.Success(shopLists))
+            } catch (error: Throwable) {
+                _shopListsLiveData.value = ResultState.Failed(error)
             }
-            shopLists.postValue(data)
+
         }
         getUpdateEvents()
     }
 
-    fun events(): LiveData<String> = eventLiveData
+    internal fun events(): LiveData<String?> = eventLiveData
+
     private fun getUpdateEvents() {
-        GlobalScope.launch {
+        viewModelScope.launch {
             shopListRepository.updateEvents().collect {
                 eventLiveData.postValue(it)
             }
